@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Macro Tracking App - Slider Graphs</title>
+  <style>
+    /* Global Styles */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    .container {
+      width: 90%;
+      max-width: 1100px;
+      margin: 20px auto;
+    }
+    h1, h2, h3 {
+      color: #2c3e50;
+      text-align: center;
+    }
+    /* Tab Navigation */
+    .tab-menu {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .tab-menu button {
+      padding: 10px 20px;
+      border: none;
+      background: #3498db;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background 0.3s;
+    }
+    .tab-menu button.active,
+    .tab-menu button:hover {
+      background: #2980b9;
+    }
+    /* Page containers */
+    .page {
+      display: none;
+    }
+    .page.active {
+      display: block;
+    }
+    /* Card styles */
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    /* Form styles */
+    form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      justify-content: space-between;
+    }
+    form label {
+      flex: 1 1 45%;
+      display: flex;
+      flex-direction: column;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    form input, form select {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-top: 5px;
+      font-size: 1em;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      background: #3498db;
+      color: #fff;
+      font-size: 1em;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #2980b9;
+    }
+    /* Section visibility */
+    .hidden {
+      display: none;
+    }
+    /* Meal List */
+    .meal-entry {
+      border: 1px solid #e1e1e1;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      background: #fafafa;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .meal-entry button {
+      background: #e67e22;
+    }
+    .meal-entry button:hover {
+      background: #d35400;
+    }
+    /* Performance message in record cards */
+    .performance {
+      font-size: 1.1em;
+      font-weight: bold;
+      padding: 8px;
+      margin-top: 10px;
+      border-radius: 4px;
+      text-align: center;
+      color: #fff;
+    }
+    /* Workout update in Add Meal page */
+    .workout-update {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    .workout-update label {
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    /* Slider Styles for Graphs */
+    .slider {
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .slides {
+      display: flex;
+      transition: transform 0.5s ease;
+    }
+    .slide {
+      flex: 0 0 100%;
+      box-sizing: border-box;
+      padding: 10px;
+    }
+    .slider-nav {
+      position: absolute;
+      top: 50%;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+    .slider-nav button {
+      background: rgba(0,0,0,0.5);
+      border: none;
+      color: #fff;
+      font-size: 1.5em;
+      padding: 5px 10px;
+      border-radius: 50%;
+      cursor: pointer;
+      pointer-events: all;
+    }
+    /* Chart container within slide */
+    .chart-container {
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 4px;
+      background: #fff;
+    }
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .chart-header select {
+      padding: 5px;
+      font-size: 0.9em;
+    }
+    /* Edit Records Page */
+    #recordsList .card {
+      margin-bottom: 15px;
+    }
+    .edit-btn {
+      background: #27ae60;
+      margin-top: 10px;
+    }
+    .edit-btn:hover {
+      background: #1e8449;
+    }
+  </style>
+  <!-- Load Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Macro Tracking App</h1>
+    
+    <!-- Tab Menu -->
+    <div class="tab-menu">
+      <button id="tabAddMeal" class="active" onclick="switchTab('addMeal')">Add Meal</button>
+      <button id="tabGraphs" onclick="switchTab('graphs')">Graphs</button>
+      <button id="tabEdit" onclick="switchTab('editRecords')">Edit Records</button>
+    </div>
+    
+    <!-- Page: Add Meal -->
+    <div id="pageAddMeal" class="page active">
+      <!-- New Day Record Form (if no record exists) -->
+      <div id="newRecordSection" class="card">
+        <h2>New Day Record</h2>
+        <form id="newRecordForm">
+          <label>
+            Date (YYYY-MM-DD):
+            <input type="date" id="recordDate" required>
+          </label>
+          <label>
+            Weight:
+            <input type="text" id="weight" required>
+          </label>
+          <label>
+            Sleep Hours:
+            <input type="text" id="sleep" required>
+          </label>
+          <label>
+            Calories Goal:
+            <input type="text" id="goalCalories" required>
+          </label>
+          <label>
+            Protein Goal (g):
+            <input type="text" id="goalProtein" required>
+          </label>
+          <label>
+            Carbs Goal (g):
+            <input type="text" id="goalCarbs" required>
+          </label>
+          <label>
+            Fats Goal (g):
+            <input type="text" id="goalFats" required>
+          </label>
+          <div style="flex-basis: 100%; text-align: center; margin-top:10px;">
+            <button type="submit">Start Day</button>
+          </div>
+        </form>
+      </div>
+      
+      <!-- Meal Entry Section -->
+      <div id="mealSection" class="card hidden">
+        <h2>Meals for <span id="currentDate"></span></h2>
+        <!-- Update workout status -->
+        <div class="workout-update">
+          <label>Did you work out today?</label>
+          <select id="workoutUpdate" onchange="updateWorkoutStatus(this.value)">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+        <div id="remainingMacros" style="text-align:center; font-weight:bold; margin-bottom:15px;"></div>
+        <div class="card" style="padding:15px; margin-bottom:20px;">
+          <h3>Add a Meal</h3>
+          <form id="mealForm">
+            <label style="flex-basis: 100%;">
+              Meal Description:
+              <input type="text" id="mealDescription" required>
+            </label>
+            <label>
+              Calories:
+              <input type="text" id="mealCalories" required>
+            </label>
+            <label>
+              Protein (g):
+              <input type="text" id="mealProtein" required>
+            </label>
+            <label>
+              Carbs (g):
+              <input type="text" id="mealCarbs" required>
+            </label>
+            <label>
+              Fats (g):
+              <input type="text" id="mealFats" required>
+            </label>
+            <div style="flex-basis: 100%; text-align: center;">
+              <button type="submit">Add Meal</button>
+            </div>
+          </form>
+        </div>
+        <h3 style="text-align:center;">Meals List</h3>
+        <div id="mealsList"></div>
+        <div style="text-align:center; margin-top:20px;">
+          <button id="submitDay">Submit Day Record</button>
+        </div>
+        <!-- Daily Intake Chart -->
+        <div class="chart-container">
+          <div class="chart-header">
+            <div>Daily Macro Intake</div>
+          </div>
+          <canvas id="dailyChart"></canvas>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Page: Graphs -->
+    <div id="pageGraphs" class="page">
+      <h2>Aggregate Reports</h2>
+      <!-- Slider Container for Graphs -->
+      <div class="slider">
+        <div class="slides" id="slidesContainer">
+          <!-- Slide 1: Calorie Intake -->
+          <div class="slide">
+            <div class="chart-container">
+              <div class="chart-header">
+                <div>Calorie Intake</div>
+                <select id="calorieView" onchange="updateCalorieChart(this.value)">
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              <canvas id="weeklyCalorieChart"></canvas>
+            </div>
+          </div>
+          <!-- Slide 2: Sleep Hours -->
+          <div class="slide">
+            <div class="chart-container">
+              <div class="chart-header">
+                <div>Sleep Hours</div>
+                <select id="sleepView" onchange="updateSleepChart(this.value)">
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              <canvas id="weeklySleepChart"></canvas>
+            </div>
+          </div>
+          <!-- Slide 3: Protein Intake -->
+          <div class="slide">
+            <div class="chart-container">
+              <div class="chart-header">
+                <div>Protein Intake</div>
+                <select id="proteinView" onchange="updateProteinChart(this.value)">
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              <canvas id="weeklyProteinChart"></canvas>
+            </div>
+          </div>
+          <!-- Slide 4: Carbs Intake -->
+          <div class="slide">
+            <div class="chart-container">
+              <div class="chart-header">
+                <div>Carbs Intake</div>
+                <select id="carbsView" onchange="updateCarbsChart(this.value)">
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              <canvas id="weeklyCarbsChart"></canvas>
+            </div>
+          </div>
+          <!-- Slide 5: Fats Intake -->
+          <div class="slide">
+            <div class="chart-container">
+              <div class="chart-header">
+                <div>Fats Intake</div>
+                <select id="fatsView" onchange="updateFatsChart(this.value)">
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              <canvas id="weeklyFatsChart"></canvas>
+            </div>
+          </div>
+          <!-- Slide 6: Workout Activity -->
+          <div class="slide">
+            <div class="chart-container">
+              <div class="chart-header">
+                <div>Workout Activity</div>
+                <select id="workoutView" onchange="updateWorkoutChart(this.value)">
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              <canvas id="workoutChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <!-- Slider Navigation Arrows -->
+        <div class="slider-nav">
+          <button id="prevBtn" onclick="prevSlide()">&#10094;</button>
+          <button id="nextBtn" onclick="nextSlide()">&#10095;</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Page: Edit Records -->
+    <div id="pageEditRecords" class="page">
+      <h2>Edit Past Records</h2>
+      <div id="recordsList"></div>
+    </div>
+  </div>
+  
+  <script>
+    // Global Variables
+    let records = {}; // Records stored by date (YYYY-MM-DD)
+    let currentRecord = null;
+    let dailyChartInstance = null;
+    let weeklyCalorieChartInstance = null;
+    let weeklySleepChartInstance = null;
+    let weeklyProteinChartInstance = null;
+    let weeklyCarbsChartInstance = null;
+    let weeklyFatsChartInstance = null;
+    let workoutChartInstance = null;
+    
+    // Tab switching
+    function switchTab(tabName) {
+      document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+      document.querySelectorAll('.tab-menu button').forEach(btn => btn.classList.remove('active'));
+      if (tabName === "addMeal") {
+        document.getElementById("pageAddMeal").classList.add("active");
+        document.getElementById("tabAddMeal").classList.add("active");
+      } else if (tabName === "graphs") {
+        document.getElementById("pageGraphs").classList.add("active");
+        document.getElementById("tabGraphs").classList.add("active");
+      } else if (tabName === "editRecords") {
+        document.getElementById("pageEditRecords").classList.add("active");
+        document.getElementById("tabEdit").classList.add("active");
+        updateRecordsList();
+      }
+    }
+    
+    // Slider variables and functions for Graphs page
+    let currentSlide = 0;
+    const slidesContainer = document.getElementById("slidesContainer");
+    const totalSlides = document.querySelectorAll(".slide").length;
+    
+    function updateSlider() {
+      slidesContainer.style.transform = "translateX(-" + (currentSlide * 100) + "%)";
+    }
+    
+    function nextSlide() {
+      currentSlide = (currentSlide + 1) % totalSlides;
+      updateSlider();
+    }
+    
+    function prevSlide() {
+      currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+      updateSlider();
+    }
+    
+    // Helper: Check for leading zeros.
+    function hasLeadingZero(value) {
+      return value.length > 1 && value.startsWith("0");
+    }
+    
+    // Validate inputs.
+    function validateInputs(inputIds) {
+      for (let id of inputIds) {
+        const val = document.getElementById(id).value.trim();
+        if (hasLeadingZero(val)) {
+          alert("Invalid input in " + id + ": no leading zeros allowed.");
+          return false;
+        }
+        if (isNaN(val)) {
+          alert("Invalid number in " + id);
+          return false;
+        }
+      }
+      return true;
+    }
+    
+    // Update remaining macros display.
+    function updateRemainingDisplay(record) {
+      const totals = { calories: 0, protein: 0, carbs: 0, fats: 0 };
+      record.meals.forEach(meal => {
+        totals.calories += meal.calories;
+        totals.protein += meal.protein;
+        totals.carbs += meal.carbs;
+        totals.fats += meal.fats;
+      });
+      const remaining = {
+        calories: record.goals.calories - totals.calories,
+        protein: record.goals.protein - totals.protein,
+        carbs: record.goals.carbs - totals.carbs,
+        fats: record.goals.fats - totals.fats,
+      };
+      document.getElementById("remainingMacros").innerHTML =
+        "<strong>Remaining Macros:</strong><br>" +
+        "Calories: " + remaining.calories + "<br>" +
+        "Protein: " + remaining.protein + "g<br>" +
+        "Carbs: " + remaining.carbs + "g<br>" +
+        "Fats: " + remaining.fats + "g";
+    }
+    
+    // Render the meals list.
+    function renderMealsList(record) {
+      const mealsListDiv = document.getElementById("mealsList");
+      mealsListDiv.innerHTML = "";
+      record.meals.forEach((meal, index) => {
+        const mealDiv = document.createElement("div");
+        mealDiv.className = "meal-entry";
+        mealDiv.innerHTML =
+          "<span><strong>" + meal.description + "</strong>: " +
+          "Calories: " + meal.calories + ", " +
+          "Protein: " + meal.protein + "g, " +
+          "Carbs: " + meal.carbs + "g, " +
+          "Fats: " + meal.fats + "g</span>" +
+          '<button onclick="editMeal(' + index + ')">Edit</button>';
+        mealsListDiv.appendChild(mealDiv);
+      });
+      updateRemainingDisplay(record);
+      updateDailyChart(record);
+    }
+    
+    // Update workout status in currentRecord from Add Meal page.
+    function updateWorkoutStatus(val) {
+      if (currentRecord) { currentRecord.workout = (val === "true"); }
+    }
+    
+    // Create or update the daily intake chart.
+    function updateDailyChart(record) {
+      const totals = { calories: 0, protein: 0, carbs: 0, fats: 0 };
+      record.meals.forEach(meal => {
+        totals.calories += meal.calories;
+        totals.protein += meal.protein;
+        totals.carbs += meal.carbs;
+        totals.fats += meal.fats;
+      });
+      const labels = ["Calories", "Protein", "Carbs", "Fats"];
+      const consumedData = [
+        totals.calories,
+        totals.protein,
+        totals.carbs,
+        totals.fats
+      ];
+      const goalData = [
+        record.goals.calories,
+        record.goals.protein,
+        record.goals.carbs,
+        record.goals.fats
+      ];
+      const ctx = document.getElementById("dailyChart").getContext("2d");
+      if (dailyChartInstance) { dailyChartInstance.destroy(); }
+      dailyChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'Consumed', data: consumedData, backgroundColor: 'rgba(54, 162, 235, 0.6)' },
+            { label: 'Goal', data: goalData, backgroundColor: 'rgba(255, 99, 132, 0.6)' }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero: true } },
+          plugins: { title: { display: true, text: "Daily Macro Intake" } }
+        }
+      });
+    }
+    
+    // Helper: Get records for the last N days.
+    function getRecordsForPeriod(days) {
+      const now = new Date();
+      const filtered = [];
+      for (const date in records) {
+        const recDate = new Date(date);
+        const diff = (now - recDate) / (1000 * 60 * 60 * 24);
+        if (diff < days) { filtered.push({ date, record: records[date] }); }
+      }
+      filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+      return filtered;
+    }
+    
+    // Update aggregate charts – each function uses "weekly" (7 days) or "monthly" (30 days) view.
+    function updateCalorieChart(view) {
+      const days = view === "monthly" ? 30 : 7;
+      const dataArray = getRecordsForPeriod(days);
+      const labels = [];
+      const caloriesData = [];
+      dataArray.forEach(item => {
+        labels.push(item.date);
+        let total = 0;
+        item.record.meals.forEach(meal => { total += meal.calories; });
+        caloriesData.push(total);
+      });
+      const ctx = document.getElementById("weeklyCalorieChart").getContext("2d");
+      if (weeklyCalorieChartInstance) { weeklyCalorieChartInstance.destroy(); }
+      weeklyCalorieChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Total Calories Consumed',
+            data: caloriesData,
+            fill: false,
+            borderColor: 'rgba(75, 192, 192, 1)',
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: "Calorie Intake (" + view + ")" } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+    
+    function updateSleepChart(view) {
+      const days = view === "monthly" ? 30 : 7;
+      const dataArray = getRecordsForPeriod(days);
+      const labels = [];
+      const sleepData = [];
+      dataArray.forEach(item => {
+        labels.push(item.date);
+        sleepData.push(item.record.sleep);
+      });
+      const ctx = document.getElementById("weeklySleepChart").getContext("2d");
+      if (weeklySleepChartInstance) { weeklySleepChartInstance.destroy(); }
+      weeklySleepChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Sleep Hours',
+            data: sleepData,
+            fill: false,
+            borderColor: 'rgba(153, 102, 255, 1)',
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: "Sleep Hours (" + view + ")" } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+    
+    function updateProteinChart(view) {
+      const days = view === "monthly" ? 30 : 7;
+      const dataArray = getRecordsForPeriod(days);
+      const labels = [];
+      const proteinData = [];
+      dataArray.forEach(item => {
+        labels.push(item.date);
+        let total = 0;
+        item.record.meals.forEach(meal => { total += meal.protein; });
+        proteinData.push(total);
+      });
+      const ctx = document.getElementById("weeklyProteinChart").getContext("2d");
+      if (weeklyProteinChartInstance) { weeklyProteinChartInstance.destroy(); }
+      weeklyProteinChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Total Protein (g)',
+            data: proteinData,
+            fill: false,
+            borderColor: 'rgba(255, 159, 64, 1)',
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: "Protein Intake (" + view + ")" } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+    
+    function updateCarbsChart(view) {
+      const days = view === "monthly" ? 30 : 7;
+      const dataArray = getRecordsForPeriod(days);
+      const labels = [];
+      const carbsData = [];
+      dataArray.forEach(item => {
+        labels.push(item.date);
+        let total = 0;
+        item.record.meals.forEach(meal => { total += meal.carbs; });
+        carbsData.push(total);
+      });
+      const ctx = document.getElementById("weeklyCarbsChart").getContext("2d");
+      if (weeklyCarbsChartInstance) { weeklyCarbsChartInstance.destroy(); }
+      weeklyCarbsChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Total Carbs (g)',
+            data: carbsData,
+            fill: false,
+            borderColor: 'rgba(255, 206, 86, 1)',
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: "Carbs Intake (" + view + ")" } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+    
+    function updateFatsChart(view) {
+      const days = view === "monthly" ? 30 : 7;
+      const dataArray = getRecordsForPeriod(days);
+      const labels = [];
+      const fatsData = [];
+      dataArray.forEach(item => {
+        labels.push(item.date);
+        let total = 0;
+        item.record.meals.forEach(meal => { total += meal.fats; });
+        fatsData.push(total);
+      });
+      const ctx = document.getElementById("weeklyFatsChart").getContext("2d");
+      if (weeklyFatsChartInstance) { weeklyFatsChartInstance.destroy(); }
+      weeklyFatsChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Total Fats (g)',
+            data: fatsData,
+            fill: false,
+            borderColor: 'rgba(255, 99, 132, 1)',
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: "Fats Intake (" + view + ")" } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+    
+    function updateWorkoutChart(view) {
+      const days = view === "monthly" ? 30 : 7;
+      const dataArray = getRecordsForPeriod(days);
+      const labels = [];
+      const workoutData = [];
+      dataArray.forEach(item => {
+        labels.push(item.date);
+        workoutData.push(item.record.workout ? 1 : 0);
+      });
+      const ctx = document.getElementById("workoutChart").getContext("2d");
+      if (workoutChartInstance) { workoutChartInstance.destroy(); }
+      workoutChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Workout (1 = Yes, 0 = No)',
+            data: workoutData,
+            fill: false,
+            borderColor: 'rgba(54, 162, 235, 1)',
+            tension: 0.1,
+            stepped: true
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: "Workout Activity (" + view + ")" } },
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+      });
+    }
+    
+    // New Day Record submission.
+    document.getElementById("newRecordForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const inputIds = ["weight", "sleep", "goalCalories", "goalProtein", "goalCarbs", "goalFats"];
+      if (!validateInputs(inputIds)) return;
+      const date = document.getElementById("recordDate").value;
+      const weight = parseFloat(document.getElementById("weight").value);
+      const sleep = parseFloat(document.getElementById("sleep").value);
+      const goals = {
+        calories: parseInt(document.getElementById("goalCalories").value),
+        protein: parseInt(document.getElementById("goalProtein").value),
+        carbs: parseInt(document.getElementById("goalCarbs").value),
+        fats: parseInt(document.getElementById("goalFats").value)
+      };
+      currentRecord = {
+        date: date,
+        weight: weight,
+        sleep: sleep,
+        workout: false,
+        goals: goals,
+        meals: []
+      };
+      records[date] = currentRecord;
+      document.getElementById("currentDate").textContent = date;
+      document.getElementById("newRecordSection").classList.add("hidden");
+      document.getElementById("mealSection").classList.remove("hidden");
+      renderMealsList(currentRecord);
+    });
+    
+    // Add a meal.
+    document.getElementById("mealForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const numericIds = ["mealCalories", "mealProtein", "mealCarbs", "mealFats"];
+      if (!validateInputs(numericIds)) return;
+      const meal = {
+        description: document.getElementById("mealDescription").value.trim(),
+        calories: parseInt(document.getElementById("mealCalories").value),
+        protein: parseInt(document.getElementById("mealProtein").value),
+        carbs: parseInt(document.getElementById("mealCarbs").value),
+        fats: parseInt(document.getElementById("mealFats").value)
+      };
+      currentRecord.meals.push(meal);
+      renderMealsList(currentRecord);
+      document.getElementById("mealForm").reset();
+    });
+    
+    // Edit a meal.
+    function editMeal(index) {
+      const meal = currentRecord.meals[index];
+      document.getElementById("mealDescription").value = meal.description;
+      document.getElementById("mealCalories").value = meal.calories;
+      document.getElementById("mealProtein").value = meal.protein;
+      document.getElementById("mealCarbs").value = meal.carbs;
+      document.getElementById("mealFats").value = meal.fats;
+      currentRecord.meals.splice(index, 1);
+      renderMealsList(currentRecord);
+    }
+    
+    // Submit day record.
+    document.getElementById("submitDay").addEventListener("click", function() {
+      alert("Day record submitted for " + currentRecord.date);
+      currentRecord = null;
+      document.getElementById("mealSection").classList.add("hidden");
+      document.getElementById("newRecordSection").classList.remove("hidden");
+      document.getElementById("newRecordForm").reset();
+      document.getElementById("mealForm").reset();
+      updateRecordsList();
+      updateCalorieChart(document.getElementById("calorieView").value);
+      updateSleepChart(document.getElementById("sleepView").value);
+      updateProteinChart(document.getElementById("proteinView").value);
+      updateCarbsChart(document.getElementById("carbsView").value);
+      updateFatsChart(document.getElementById("fatsView").value);
+      updateWorkoutChart(document.getElementById("workoutView").value);
+    });
+    
+    // Update past records list (for Edit Records page).
+    function updateRecordsList() {
+      const recordsListDiv = document.getElementById("recordsList");
+      recordsListDiv.innerHTML = "";
+      for (const date in records) {
+        const record = records[date];
+        const recordDiv = document.createElement("div");
+        recordDiv.className = "card";
+        let recordHTML =
+          "<strong>Date:</strong> " + record.date + "<br>" +
+          "<strong>Weight:</strong> " + record.weight + "<br>" +
+          "<strong>Sleep Hours:</strong> " + record.sleep + "<br>" +
+          "<strong>Workout:</strong> " + (record.workout ? "Yes" : "No") + "<br>" +
+          "<strong>Goals:</strong> Calories: " + record.goals.calories +
+          ", Protein: " + record.goals.protein + "g, Carbs: " + record.goals.carbs +
+          "g, Fats: " + record.goals.fats + "g<br><br>" +
+          "<strong>Meals:</strong><br>";
+        record.meals.forEach(meal => {
+          recordHTML += "<em>" + meal.description + "</em> - Calories: " + meal.calories +
+                        ", Protein: " + meal.protein + "g, Carbs: " + meal.carbs +
+                        "g, Fats: " + meal.fats + "g<br>";
+        });
+        const performance = getPerformance(record);
+        recordHTML += '<div class="performance" style="background-color:' + performance.color + ';">' +
+                      performance.msg + " (" + performance.overall + "% consumed)" +
+                      '</div>';
+        recordHTML += '<button class="edit-btn" onclick="editRecord(\'' + record.date + '\')">Edit Record</button>';
+        recordDiv.innerHTML = recordHTML;
+        recordsListDiv.appendChild(recordDiv);
+      }
+    }
+    
+    // Edit an existing record.
+    function editRecord(date) {
+      const record = records[date];
+      currentRecord = record;
+      document.getElementById("recordDate").value = record.date;
+      document.getElementById("weight").value = record.weight;
+      document.getElementById("sleep").value = record.sleep;
+      document.getElementById("workout").value = record.workout.toString();
+      document.getElementById("goalCalories").value = record.goals.calories;
+      document.getElementById("goalProtein").value = record.goals.protein;
+      document.getElementById("goalCarbs").value = record.goals.carbs;
+      document.getElementById("goalFats").value = record.goals.fats;
+      document.getElementById("currentDate").textContent = record.date;
+      renderMealsList(record);
+      switchTab("addMeal");
+      document.getElementById("newRecordSection").classList.add("hidden");
+      document.getElementById("mealSection").classList.remove("hidden");
+    }
+    
+    // Expose functions for inline event handlers.
+    window.editMeal = editMeal;
+    window.editRecord = editRecord;
+    
+    // -------------------------
+    // Dummy Data Generation
+    // -------------------------
+    function generateDummyData() {
+      // Clear existing records and generate new dummy data.
+      records = {};
+      const now = new Date();
+      for (let i = 0; i < 30; i++) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        const dateStr = d.toISOString().slice(0, 10);
+        const weight = 70 + Math.random() * 5;
+        const sleep = 6 + Math.random() * 3;
+        const workout = Math.random() > 0.5;
+        const goals = { calories: 2000, protein: 150, carbs: 250, fats: 70 };
+        const meals = [];
+        const numMeals = 2 + Math.floor(Math.random() * 3);
+        for (let j = 0; j < numMeals; j++) {
+          meals.push({
+            description: "Meal " + (j + 1),
+            calories: 400 + Math.floor(Math.random() * 200),
+            protein: 20 + Math.floor(Math.random() * 10),
+            carbs: 50 + Math.floor(Math.random() * 20),
+            fats: 10 + Math.floor(Math.random() * 5)
+          });
+        }
+        records[dateStr] = { date: dateStr, weight, sleep, workout, goals, meals };
+      }
+      updateRecordsList();
+      updateCalorieChart(document.getElementById("calorieView").value);
+      updateSleepChart(document.getElementById("sleepView").value);
+      updateProteinChart(document.getElementById("proteinView").value);
+      updateCarbsChart(document.getElementById("carbsView").value);
+      updateFatsChart(document.getElementById("fatsView").value);
+      updateWorkoutChart(document.getElementById("workoutView").value);
+      alert("Dummy records generated.");
+    }
+    
+    // Initialize dummy data and update aggregate charts on page load.
+    window.onload = function() {
+      generateDummyData();
+      updateRecordsList();
+      updateCalorieChart("weekly");
+      updateSleepChart("weekly");
+      updateProteinChart("weekly");
+      updateCarbsChart("weekly");
+      updateFatsChart("weekly");
+      updateWorkoutChart("weekly");
+    }
+  </script>
+</body>
+</html>
